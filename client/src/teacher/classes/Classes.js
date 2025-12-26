@@ -51,10 +51,11 @@ const Classes = () => {
         subjects: Array.isArray(s.subjects) ? s.subjects.map(x => x?.toString()) : [],
       }));
       setStudents(normalizedStudents);
-      toast.success('Data refreshed successfully!');
     } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast.error('Failed to load data');
+      if (error.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load data');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -12,6 +12,9 @@ import Dashboard from './teacher/dashboard/Dashboard';
 import Students from './teacher/students/Students';
 import Classes from './teacher/classes/Classes';
 import Attendance from './teacher/attendance/Attendance';
+import ManualEntry from './teacher/attendance/ManualEntry';
+import History from './teacher/attendance/History';
+import AnomalyReview from './teacher/attendance/AnomalyReview';
 import LoadingSpinner from './teacher/common/LoadingSpinner';
 import ClassesAdmin from './components/admin/ClassesAdmin';
 import ConnectionStatus from './components/ConnectionStatus';
@@ -697,6 +700,9 @@ function AppRoutes() {
         <Route path="students" element={<Students />} />
         <Route path="classes" element={<Classes />} />
         <Route path="attendance" element={<Attendance />} />
+        <Route path="attendance/manual" element={<ManualEntry />} />
+        <Route path="attendance/history" element={<History />} />
+        <Route path="attendance/anomalies" element={<AnomalyReview />} />
       </Route>
 
       {/* Admin routes */}

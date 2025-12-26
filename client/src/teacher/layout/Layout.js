@@ -5,18 +5,19 @@ import {
   Menu, 
   X, 
   GraduationCap, 
-  Home, 
   Users, 
   BookOpen, 
   Calendar, 
-  TrendingUp, 
   User, 
   LogOut,
   Bell,
   Settings,
   Search,
-  HelpCircle,
-  BarChart3
+  BarChart3,
+  UserPlus,
+  History,
+  AlertTriangle,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -24,11 +25,8 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [notifications] = useState([
-    { id: 1, message: 'New student registered', time: '2 minutes ago', type: 'info' },
-    { id: 2, message: 'Attendance report generated', time: '1 hour ago', type: 'success' },
-    { id: 3, message: 'System maintenance scheduled', time: '3 hours ago', type: 'warning' }
+    { id: 1, message: 'System ready', time: 'Just now', type: 'success' }
   ]);
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
@@ -40,76 +38,35 @@ const Layout = () => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
-      // Close search results when clicking outside
-      if (searchQuery && !event.target.closest('.search-container')) {
-        // setShowSearchResults(false); // This line was removed
-      }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [searchQuery]);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  // Don't render until authentication is ready - MOVED AFTER ALL HOOKS
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+          <p className="text-gray-600 text-sm">Loading...</p>
         </div>
       </div>
     );
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: BarChart3, description: 'Overview & Analytics' },
-    { name: 'Students', href: '/students', icon: Users, description: 'Manage Student Database' },
-    { name: 'Classes', href: '/classes', icon: BookOpen, description: 'Course Management' },
-    { name: 'Attendance', href: '/attendance', icon: Calendar, description: 'Track Student Attendance' },
-    { name: 'Reports', href: '/reports', icon: TrendingUp, description: 'Analytics & Insights' }
-  ];
-
-  const quickActions = [
-    {
-      name: 'Add Student',
-      icon: Users,
-      color: 'from-blue-500 to-blue-600',
-      action: () => {
-        navigate('/students');
-        setSidebarOpen(false);
-      }
-    },
-    {
-      name: 'New Class',
-      icon: BookOpen,
-      color: 'from-green-500 to-green-600',
-      action: () => {
-        navigate('/classes');
-        setSidebarOpen(false);
-      }
-    },
-    {
-      name: 'Take Attendance',
-      icon: Calendar,
-      color: 'from-purple-500 to-purple-600',
-      action: () => {
-        navigate('/attendance');
-        setSidebarOpen(false);
-      }
-    },
-    {
-      name: 'View Reports',
-      icon: TrendingUp,
-      color: 'from-orange-500 to-orange-600',
-      action: () => {
-        navigate('/dashboard');
-        setSidebarOpen(false);
-        toast.success('Viewing dashboard analytics');
-      }
-    }
+    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { name: 'Students', href: '/students', icon: Users },
+    { name: 'Classes', href: '/classes', icon: BookOpen },
+    { name: 'Attendance', href: '/attendance', icon: Calendar },
+    { name: 'Manual Entry', href: '/attendance/manual', icon: UserPlus },
+    { name: 'History', href: '/attendance/history', icon: History },
+    { name: 'Anomalies', href: '/attendance/anomalies', icon: AlertTriangle }
   ];
 
   const handleLogout = () => {
@@ -119,314 +76,198 @@ const Layout = () => {
 
   const isActive = (href) => location.pathname === href;
 
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-  };
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setSearchLoading(true);
-      // Simulate search delay
-      setTimeout(() => {
-        toast.success(`Searching for: ${searchQuery}`);
-        // setShowSearchResults(false); // This line was removed
-        setSearchLoading(false);
-      }, 1000);
-    }
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    // setShowSearchResults(e.target.value.length > 0); // This line was removed
-    if (e.target.value.length === 0) {
-      // setShowSearchResults(false); // This line was removed
-    }
-  };
-
-  const toggleNotifications = () => {
-    setShowNotifications(!showNotifications);
+  const getPageTitle = () => {
+    const current = navigation.find(n => isActive(n.href));
+    return current?.name || 'Dashboard';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      {/* Mobile sidebar */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div className="relative z-50 lg:hidden">
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onClick={closeSidebar} />
-          <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl">
-            <div className="flex h-full flex-col">
-              {/* Mobile header */}
-              <div className="flex h-20 items-center justify-between px-6 bg-gradient-to-r from-blue-600 to-purple-600">
-                <div className="flex items-center">
-                  <div className="p-2 bg-white/20 rounded-xl">
-                    <GraduationCap className="h-8 w-8 text-white" />
-                  </div>
-                  <span className="ml-3 text-xl font-bold text-white">Attendance Pro</span>
-                </div>
-                <button
-                  onClick={closeSidebar}
-                  className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-y-0 left-0 w-72 bg-white shadow-xl flex flex-col">
+            {/* Mobile sidebar header */}
+            <div className="h-16 flex items-center justify-between px-4 bg-gradient-to-r from-indigo-600 to-purple-600">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="h-7 w-7 text-white" />
+                <span className="text-lg font-bold text-white">Attendance</span>
               </div>
+              <button onClick={() => setSidebarOpen(false)} className="p-2 text-white/80 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-              {/* Mobile content - Scrollable */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* User Profile */}
-                <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <User className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{user?.name || 'Teacher'}</p>
-                      <p className="text-sm text-gray-600">{user?.email}</p>
-                    </div>
-                  </div>
+            {/* User info */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-white" />
                 </div>
-
-                {/* Navigation - Scrollable */}
-                <div className="flex-1 overflow-y-auto sidebar-scrollbar">
-                  <nav className="px-4 py-6 space-y-2">
-                    {navigation.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          key={item.name}
-                          onClick={() => {
-                            navigate(item.href);
-                            closeSidebar();
-                          }}
-                          className={`group flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 ${
-                            isActive(item.href)
-                              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:shadow-md'
-                          }`}
-                        >
-                          <Icon className={`mr-3 h-5 w-5 transition-transform duration-300 ${
-                            isActive(item.href) ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
-                          }`} />
-                          <div className="text-left">
-                            <div className="font-medium">{item.name}</div>
-                            <div className={`text-xs ${isActive(item.href) ? 'text-white/80' : 'text-gray-500'}`}>
-                              {item.description}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </nav>
-
-                  {/* Quick Actions */}
-                  <div className="px-4 py-4 border-t border-gray-200">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Actions</h3>
-                    <div className="space-y-2">
-                      {quickActions.map((action) => (
-                        <button
-                          key={action.name}
-                          onClick={() => {
-                            action.action();
-                            closeSidebar();
-                          }}
-                          className="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-                        >
-                          <div className={`p-1.5 rounded-lg bg-gradient-to-r ${action.color} mr-3`}>
-                            <action.icon className="h-4 w-4 text-white" />
-                          </div>
-                          {action.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                 </div>
+              </div>
+            </div>
 
-                {/* Logout */}
-                <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
                   <button
-                    onClick={() => {
-                      handleLogout();
-                      closeSidebar();
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    key={item.name}
+                    onClick={() => navigate(item.href)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
                   >
-                    <LogOut className="h-4 w-4 mr-3" />
-                    Sign Out
+                    <Icon className={`h-5 w-5 ${active ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    {item.name}
+                    {active && <ChevronRight className="h-4 w-4 ml-auto text-indigo-400" />}
                   </button>
-                </div>
-              </div>
+                );
+              })}
+            </nav>
+
+            {/* Logout */}
+            <div className="p-3 border-t border-gray-100">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-80 lg:flex-col">
-        <div className="flex flex-col h-full bg-white shadow-2xl border-r border-gray-200">
-          {/* Logo Section */}
-          <div className="flex h-20 items-center px-6 bg-gradient-to-r from-blue-600 to-purple-600 flex-shrink-0">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <GraduationCap className="h-8 w-8 text-white" />
-            </div>
-            <span className="ml-3 text-xl font-bold text-white">Attendance Pro</span>
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col bg-white border-r border-gray-200">
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-3 px-5 border-b border-gray-100">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+            <GraduationCap className="h-6 w-6 text-white" />
           </div>
+          <span className="text-lg font-bold text-gray-900">Attendance</span>
+        </div>
 
-          {/* User Profile */}
-          <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <User className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">{user?.name || 'Teacher'}</p>
-                <p className="text-sm text-gray-600">{user?.email}</p>
-              </div>
+        {/* User info */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-white" />
             </div>
-          </div>
-
-          {/* Scrollable Content Area */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Navigation - Scrollable */}
-            <div className="flex-1 overflow-y-auto sidebar-scrollbar">
-              <nav className="space-y-2 px-4 py-6">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.name}
-                      onClick={() => navigate(item.href)}
-                      className={`group flex w-full items-center rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 ${
-                        isActive(item.href)
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:shadow-md'
-                      }`}
-                    >
-                      <Icon className={`mr-3 h-5 w-5 transition-transform duration-300 ${
-                        isActive(item.href) ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
-                      }`} />
-                      <div className="text-left">
-                        <div className="font-medium">{item.name}</div>
-                        <div className={`text-xs ${isActive(item.href) ? 'text-white/80' : 'text-gray-500'}`}>
-                          {item.description}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </nav>
-
-              {/* Quick Actions */}
-              <div className="px-4 py-4 border-t border-gray-200">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Actions</h3>
-                <div className="space-y-2">
-                  {quickActions.map((action) => (
-                    <button
-                      key={action.name}
-                      onClick={action.action}
-                      className="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-                    >
-                      <div className={`p-1.5 rounded-lg bg-gradient-to-r ${action.color} mr-3`}>
-                        <action.icon className="h-4 w-4 text-white" />
-                      </div>
-                      {action.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer - Fixed at bottom */}
-            <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <LogOut className="h-4 w-4 mr-3" />
-                Sign Out
-              </button>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 truncate">{user?.name || 'Teacher'}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="lg:pl-80">
-        {/* Top header */}
-        <div className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 shadow-sm">
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <button
+                key={item.name}
+                onClick={() => navigate(item.href)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <Icon className={`h-5 w-5 ${active ? 'text-indigo-600' : 'text-gray-400'}`} />
+                {item.name}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Logout */}
+        <div className="p-3 border-t border-gray-100">
           <button
-            type="button"
-            className="-m-2.5 p-2.5 text-gray-700 lg:hidden hover:bg-gray-100 rounded-lg transition-colors"
-            onClick={() => setSidebarOpen(true)}
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
           >
-            <Menu className="h-6 w-6" />
+            <LogOut className="h-5 w-5" />
+            Sign Out
           </button>
+        </div>
+      </aside>
 
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-md mx-4 search-container">
-              <form onSubmit={handleSearch} className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search students, classes, or attendance..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  disabled={searchLoading}
-                />
-                {searchLoading && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-500">
-                    <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                )}
-              </form>
+      {/* Main content area */}
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="sticky top-0 z-40 bg-white border-b border-gray-200 safe-top">
+          <div className="h-16 flex items-center justify-between px-4 lg:px-6">
+            {/* Left: Menu button (mobile) + Page title */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+              <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">{getPageTitle()}</h1>
             </div>
 
-            <div className="flex items-center gap-x-4 lg:gap-x-6">
+            {/* Center: Search (desktop only) */}
+            <div className="hidden md:flex flex-1 max-w-md mx-4">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              {/* Search button (mobile) */}
+              <button 
+                onClick={() => toast('Search coming soon')}
+                className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+
               {/* Notifications */}
               <div className="relative" ref={notificationRef}>
                 <button
-                  onClick={toggleNotifications}
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg relative"
                 >
-                  <Bell className="h-6 w-6" />
+                  <Bell className="h-5 w-5" />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {notifications.length}
-                    </span>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                   )}
                 </button>
 
-                {/* Notifications Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                    </div>
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="p-3 border-b border-gray-100 font-medium text-gray-900">Notifications</div>
                     <div className="max-h-64 overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div key={notification.id} className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-start space-x-3">
-                            <div className={`w-2 h-2 rounded-full mt-2 ${
-                              notification.type === 'success' ? 'bg-green-500' :
-                              notification.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-                            }`}></div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-900">{notification.message}</p>
-                              <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                            </div>
-                          </div>
+                      {notifications.map((n) => (
+                        <div key={n.id} className="p-3 hover:bg-gray-50 border-b border-gray-50">
+                          <p className="text-sm text-gray-900">{n.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{n.time}</p>
                         </div>
                       ))}
-                    </div>
-                    <div className="p-3 border-t border-gray-200">
-                      <button className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        View All Notifications
-                      </button>
                     </div>
                   </div>
                 )}
@@ -434,46 +275,32 @@ const Layout = () => {
 
               {/* Settings */}
               <button 
-                onClick={() => toast.success('Settings page coming soon!')}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => toast('Settings coming soon')}
+                className="hidden sm:flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
               >
-                <Settings className="h-6 w-6" />
+                <Settings className="h-5 w-5" />
               </button>
 
-              {/* Help */}
-              <button 
-                onClick={() => toast.success('Help documentation coming soon!')}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <HelpCircle className="h-6 w-6" />
-              </button>
-
-              {/* User menu with logout */}
-              <div className="flex items-center gap-x-3">
-                <div className="flex items-center gap-x-2">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-xs text-gray-500">{user?.email}</p>
-                  </div>
+              {/* User avatar + logout (desktop) */}
+              <div className="hidden sm:flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
+                <div className="h-8 w-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-white" />
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Logout"
+                  className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  title="Sign out"
                 >
                   <LogOut className="h-5 w-5" />
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Page content */}
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 p-4 lg:p-6 safe-bottom">
+          <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
         </main>

@@ -354,7 +354,8 @@ axios.interceptors.response.use(
     }
     
     // Don't retry if request was cancelled or no config exists
-    if (axios.isCancel(error) || !config) {
+    if (axios.isCancel(error) || error.code === 'ERR_CANCELED' || !config) {
+      // Silently reject canceled requests - don't show error toast
       return Promise.reject(error);
     }
     
@@ -392,11 +393,15 @@ axios.interceptors.response.use(
       return axios(config);
     }
     
-    // Log the error for debugging
-    console.error('API Error:', error);
+    // Log the error for debugging (but not canceled requests)
+    if (error.code !== 'ERR_CANCELED') {
+      console.error('API Error:', error);
+    }
     
-    // Show user-friendly error message
-    if (error.response?.status === 429) {
+    // Show user-friendly error message (but not for canceled requests)
+    if (error.code === 'ERR_CANCELED') {
+      // Silently ignore canceled requests
+    } else if (error.response?.status === 429) {
       toast.error('Too many requests. Please try again later.');
     } else if (!error.response) {
       toast.error('Network error. Please check your connection.');

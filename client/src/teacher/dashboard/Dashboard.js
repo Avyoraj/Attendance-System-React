@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { SessionActivator, LiveAttendance } from '../session';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -34,6 +35,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeSession, setActiveSession] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,10 +113,14 @@ const Dashboard = () => {
       });
 
       setRecentAttendance(attendance.slice(0, 5));
-      toast.success('Dashboard data updated successfully!');
+      if (!refreshing) {
+        // Only show success on manual refresh, not initial load
+      }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      if (error.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -232,6 +238,12 @@ const Dashboard = () => {
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh Data'}
         </button>
+      </div>
+
+      {/* Session Activator & Live Attendance - Primary Focus */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SessionActivator onSessionChange={setActiveSession} />
+        <LiveAttendance session={activeSession} />
       </div>
 
       {/* Enhanced Stats Grid */}

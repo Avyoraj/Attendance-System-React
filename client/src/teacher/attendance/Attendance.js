@@ -42,8 +42,10 @@ const Attendance = () => {
       
       setFilteredAttendance(comprehensiveAttendance);
     } catch (error) {
-      console.error('Failed to fetch attendance:', error);
-      toast.error('Failed to load attendance data');
+      if (error.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch attendance:', error);
+        toast.error('Failed to load attendance data');
+      }
     }
   }, [selectedClass, selectedDate, students]);
 
@@ -77,10 +79,11 @@ const Attendance = () => {
       if (classesRes.data.classes?.length > 0) {
         setSelectedClass(classesRes.data.classes[0].id);
       }
-      toast.success('Data refreshed successfully!');
     } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast.error('Failed to load data');
+      if (error.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load data');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

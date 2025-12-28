@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-
+// Use axios defaults baseURL (set in AuthContext) - calls should include /api prefix
 const DeviceBindings = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +12,7 @@ const DeviceBindings = () => {
   const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/students`);
+      const response = await axios.get('/api/students');
       setStudents(response.data || []);
     } catch (error) {
       if (error.code !== 'ERR_CANCELED') {
@@ -36,7 +35,7 @@ const DeviceBindings = () => {
 
     try {
       setResettingId(studentId);
-      await axios.post(`${API_BASE}/students/${studentId}/reset-device`);
+      await axios.post(`/api/students/${studentId}/reset-device`);
       toast.success(`Device binding reset for ${studentId}`);
       fetchStudents();
     } catch (error) {

@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-
+// Use axios defaults baseURL (set in AuthContext) - calls should include /api prefix
 const StudentProfiles = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +14,7 @@ const StudentProfiles = () => {
   const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/students`);
+      const response = await axios.get('/api/students');
       // Map Supabase snake_case to camelCase for frontend
       const mappedStudents = (response.data || []).map(s => ({
         id: s.student_id || s.id, // Use student_id as the display ID
@@ -63,7 +62,7 @@ const StudentProfiles = () => {
   const handleSaveProfile = async (studentId) => {
     try {
       setSaving(true);
-      await axios.put(`${API_BASE}/students/${studentId}/profile/admin`, editForm);
+      await axios.put(`/api/students/${studentId}/profile/admin`, editForm);
       toast.success(`Profile updated for ${studentId}`);
       setEditingStudent(null);
       setEditForm({});

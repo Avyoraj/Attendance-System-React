@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { SessionActivator, LiveAttendance } from '../session';
+import { TodayAttendance } from '../session';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -35,7 +35,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeSession, setActiveSession] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -240,11 +239,8 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Session Activator & Live Attendance - Primary Focus */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SessionActivator onSessionChange={setActiveSession} />
-        <LiveAttendance session={activeSession} />
-      </div>
+      {/* Today's Attendance - Simplified Demo (no session activator needed) */}
+      <TodayAttendance />
 
       {/* Enhanced Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

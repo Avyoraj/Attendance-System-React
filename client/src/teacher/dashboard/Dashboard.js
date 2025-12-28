@@ -239,15 +239,11 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Today's Attendance & Live Anomalies - Side by Side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <TodayAttendance />
-        </div>
-        <div className="lg:col-span-1">
-          <LiveAnomalies />
-        </div>
-      </div>
+      {/* Today's Attendance */}
+      <TodayAttendance />
+
+      {/* Live Proxy Detection - Full Width Below */}
+      <LiveAnomalies />
 
       {/* Enhanced Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   AlertTriangle, 
   CheckCircle, 
@@ -8,10 +8,100 @@ import {
   TrendingUp,
   Users,
   Calendar,
-  Activity
+  Activity,
+  Play,
+  RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+
+// Simple RSSI Chart Component
+const RssiChart = ({ data1, data2, label1, label2 }) => {
+  if (!data1?.length && !data2?.length) {
+    return (
+      <div className="bg-gray-100 rounded-xl p-8 text-center">
+        <Activity className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+        <p className="text-gray-500">No RSSI data available</p>
+      </div>
+    );
+  }
+
+  const allValues = [...(data1 || []).map(d => d.rssi || d.r), ...(data2 || []).map(d => d.rssi || d.r)];
+  const minRssi = Math.min(...allValues, -90);
+  const maxRssi = Math.max(...allValues, -30);
+  const range = maxRssi - minRssi || 1;
+
+  const width = 600;
+  const height = 200;
+  const padding = 40;
+
+  const getY = (rssi) => padding + ((maxRssi - rssi) / range) * (height - 2 * padding);
+  const getX = (index, total) => padding + (index / (total - 1 || 1)) * (width - 2 * padding);
+
+  const createPath = (data) => {
+    if (!data?.length) return '';
+    return data.map((d, i) => {
+      const x = getX(i, data.length);
+      const y = getY(d.rssi || d.r);
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="font-medium text-gray-900">RSSI Signal Comparison</h4>
+        <div className="flex items-center space-x-4 text-sm">
+          <span className="flex items-center">
+            <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+            {label1}
+          </span>
+          <span className="flex items-center">
+            <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+            {label2}
+          </span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48">
+        {/* Grid lines */}
+        {[-30, -50, -70, -90].map(rssi => (
+          <g key={rssi}>
+            <line
+              x1={padding}
+              y1={getY(rssi)}
+              x2={width - padding}
+              y2={getY(rssi)}
+              stroke="#e5e7eb"
+              strokeDasharray="4"
+            />
+            <text x={padding - 5} y={getY(rssi) + 4} textAnchor="end" className="text-xs fill-gray-400">
+              {rssi}
+            </text>
+          </g>
+        ))}
+        
+        {/* Data lines */}
+        {data1?.length > 0 && (
+          <path d={createPath(data1)} fill="none" stroke="#3b82f6" strokeWidth="2" />
+        )}
+        {data2?.length > 0 && (
+          <path d={createPath(data2)} fill="none" stroke="#ef4444" strokeWidth="2" />
+        )}
+        
+        {/* Axis labels */}
+        <text x={width / 2} y={height - 5} textAnchor="middle" className="text-xs fill-gray-500">
+          Time →
+        </text>
+        <text x={10} y={height / 2} textAnchor="middle" transform={`rotate(-90, 10, ${height / 2})`} className="text-xs fill-gray-500">
+          RSSI (dBm)
+        </text>
+      </svg>
+      <p className="text-xs text-gray-500 mt-2 text-center">
+        Similar patterns indicate devices moving together (potential proxy)
+      </p>
+    </div>
+  );
+};
 
 const AnomalyReview = () => {
   const [anomalies, setAnomalies] = useState([]);
@@ -19,18 +109,16 @@ const AnomalyReview = () => {
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
   const [reviewing, setReviewing] = useState(false);
   const [filter, setFilter] = useState('pending');
+  const [rssiData, setRssiData] = useState({ data1: [], data2: [] });
+  const [loadingRssi, setLoadingRssi] = useState(false);
+  const [runningAnalysis, setRunningAnalysis] = useState(false);
 
-  useEffect(() => {
-    fetchAnomalies();
-  }, [filter]);
-
-  const fetchAnomalies = async () => {
+  const fetchAnomalies = useCallback(async () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/anomalies', { params: { status: filter } });
       setAnomalies(res.data.anomalies || res.data || []);
     } catch (error) {
-      // Don't show error for canceled requests or 404
       if (error.code !== 'ERR_CANCELED') {
         console.error('Failed to fetch anomalies:', error);
         if (error.response?.status !== 404) {
@@ -39,6 +127,82 @@ const AnomalyReview = () => {
       }
     } finally {
       setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchAnomalies();
+  }, [fetchAnomalies]);
+
+  const fetchRssiData = async (anomaly) => {
+    try {
+      setLoadingRssi(true);
+      const res = await axios.get(`/api/rssi-streams/${anomaly.class_id}/${anomaly.session_date}`);
+      const streams = res.data.streams || [];
+      
+      const stream1 = streams.find(s => s.student_id === anomaly.student_id_1);
+      const stream2 = streams.find(s => s.student_id === anomaly.student_id_2);
+      
+      setRssiData({
+        data1: stream1?.rssi_data || [],
+        data2: stream2?.rssi_data || []
+      });
+    } catch (error) {
+      console.error('Failed to fetch RSSI data:', error);
+      setRssiData({ data1: [], data2: [] });
+    } finally {
+      setLoadingRssi(false);
+    }
+  };
+
+  const handleSelectAnomaly = (anomaly) => {
+    setSelectedAnomaly(anomaly);
+    setRssiData({ data1: [], data2: [] });
+    fetchRssiData(anomaly);
+  };
+
+  const handleRunAnalysis = async () => {
+    try {
+      setRunningAnalysis(true);
+      toast.loading('Running correlation analysis...', { id: 'analysis' });
+      
+      const res = await axios.post('/api/analyze-correlations', {});
+      
+      toast.success(`Analysis complete! ${res.data.results?.flagged || 0} anomalies found`, { id: 'analysis' });
+      fetchAnomalies();
+    } catch (error) {
+      toast.error('Failed to run analysis', { id: 'analysis' });
+    } finally {
+      setRunningAnalysis(false);
+    }
+  };
+
+  const handleRunTestAnalysis = async () => {
+    try {
+      setRunningAnalysis(true);
+      toast.loading('Running test analysis...', { id: 'test' });
+      
+      const res = await axios.get('/api/analyze-correlations/test');
+      
+      const results = res.data.results || [];
+      const flagged = results.filter(r => r.suspicious);
+      
+      toast.success(
+        <div>
+          <p className="font-medium">Test Complete!</p>
+          <p className="text-sm">{flagged.length} of {results.length} pairs flagged</p>
+          {flagged.map((r, i) => (
+            <p key={i} className="text-xs text-red-600">
+              {r.student1} & {r.student2}: ρ={r.correlation}
+            </p>
+          ))}
+        </div>,
+        { id: 'test', duration: 5000 }
+      );
+    } catch (error) {
+      toast.error('Failed to run test', { id: 'test' });
+    } finally {
+      setRunningAnalysis(false);
     }
   };
 
@@ -89,20 +253,40 @@ const AnomalyReview = () => {
         </div>
         
         <div className="flex items-center space-x-2">
-          {['pending', 'confirmed_proxy', 'false_positive', 'all'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status === 'all' ? '' : status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                (filter === status || (filter === '' && status === 'all'))
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </button>
-          ))}
+          <button
+            onClick={handleRunTestAnalysis}
+            disabled={runningAnalysis}
+            className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 disabled:opacity-50 flex items-center space-x-2"
+          >
+            <Play className="h-4 w-4" />
+            <span>Test Demo</span>
+          </button>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={runningAnalysis}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${runningAnalysis ? 'animate-spin' : ''}`} />
+            <span>Run Analysis</span>
+          </button>
         </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center space-x-2">
+        {['pending', 'confirmed_proxy', 'false_positive', 'all'].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status === 'all' ? '' : status)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              (filter === status || (filter === '' && status === 'all'))
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {status === 'all' ? 'All' : status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </button>
+        ))}
       </div>
 
       {/* Info Card */}
@@ -184,7 +368,7 @@ const AnomalyReview = () => {
                 
                 <div className="flex items-center space-x-2 ml-4">
                   <button
-                    onClick={() => setSelectedAnomaly(anomaly)}
+                    onClick={() => handleSelectAnomaly(anomaly)}
                     className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                     title="View Details"
                   >
@@ -275,12 +459,20 @@ const AnomalyReview = () => {
                 </div>
               </div>
               
-              {/* RSSI Chart Placeholder */}
-              <div className="bg-gray-100 rounded-xl p-8 text-center">
-                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">RSSI Time-Series Chart</p>
-                <p className="text-sm text-gray-400">Coming soon - will show signal patterns for both students</p>
-              </div>
+              {/* RSSI Chart */}
+              {loadingRssi ? (
+                <div className="bg-gray-100 rounded-xl p-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mx-auto mb-3" />
+                  <p className="text-gray-500">Loading RSSI data...</p>
+                </div>
+              ) : (
+                <RssiChart
+                  data1={rssiData.data1}
+                  data2={rssiData.data2}
+                  label1={selectedAnomaly.student_id_1}
+                  label2={selectedAnomaly.student_id_2}
+                />
+              )}
               
               {selectedAnomaly.notes && (
                 <div>

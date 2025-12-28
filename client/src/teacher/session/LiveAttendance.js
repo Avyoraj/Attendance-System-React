@@ -33,7 +33,27 @@ const LiveAttendance = ({ session }) => {
       const sessionId = session.sessionId || session._id;
       const response = await axios.get(`/api/sessions/${sessionId}/attendance`);
       
-      setAttendance(response.data.attendance || []);
+      // Map Supabase snake_case to camelCase for frontend
+      const mappedAttendance = (response.data.attendance || []).map(a => ({
+        _id: a.id,
+        studentId: a.student_id,
+        classId: a.class_id,
+        sessionId: a.session_id,
+        deviceId: a.device_id,
+        status: a.status,
+        checkInTime: a.check_in_time,
+        confirmedAt: a.confirmed_at,
+        cancelledAt: a.cancelled_at,
+        cancellationReason: a.cancellation_reason,
+        rssi: a.rssi,
+        distance: a.distance,
+        beaconMajor: a.beacon_major,
+        beaconMinor: a.beacon_minor,
+        sessionDate: a.session_date,
+        isManual: a.is_manual
+      }));
+      
+      setAttendance(mappedAttendance);
       setSummary(response.data.summary || { total: 0, confirmed: 0, provisional: 0 });
     } catch (error) {
       if (error.code !== 'ERR_CANCELED') {

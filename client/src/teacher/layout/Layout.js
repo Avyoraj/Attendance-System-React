@@ -17,7 +17,9 @@ import {
   UserPlus,
   History,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  Smartphone,
+  UserCog
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -62,6 +64,8 @@ const Layout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { name: 'Students', href: '/students', icon: Users },
+    { name: 'Student Profiles', href: '/students/profiles', icon: UserCog },
+    { name: 'Device Bindings', href: '/students/devices', icon: Smartphone },
     { name: 'Classes', href: '/classes', icon: BookOpen },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
     { name: 'Manual Entry', href: '/attendance/manual', icon: UserPlus },

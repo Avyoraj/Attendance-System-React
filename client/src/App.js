@@ -10,6 +10,8 @@ import ProtectedRoute from './auth/ProtectedRoute';
 import Layout from './teacher/layout/Layout';
 import Dashboard from './teacher/dashboard/Dashboard';
 import Students from './teacher/students/Students';
+import DeviceBindings from './teacher/students/DeviceBindings';
+import StudentProfiles from './teacher/students/StudentProfiles';
 import Classes from './teacher/classes/Classes';
 import Attendance from './teacher/attendance/Attendance';
 import ManualEntry from './teacher/attendance/ManualEntry';
@@ -698,6 +700,8 @@ function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="students" element={<Students />} />
+        <Route path="students/devices" element={<DeviceBindings />} />
+        <Route path="students/profiles" element={<StudentProfiles />} />
         <Route path="classes" element={<Classes />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="attendance/manual" element={<ManualEntry />} />

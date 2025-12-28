@@ -93,9 +93,16 @@ const EnhancedDashboard = () => {
         axios.get('/api/students')
       ]);
 
-      // Process attendance data
-      const attendanceData = attendanceRes.data.attendance || [];
-      const students = studentsRes.data.students || [];
+      // Process attendance data - map snake_case to camelCase
+      const attendanceData = (attendanceRes.data.attendance || []).map(a => ({
+        ...a,
+        studentId: a.student_id || a.studentId,
+        classId: a.class_id || a.classId,
+        checkInTime: a.check_in_time || a.checkInTime,
+        confirmedAt: a.confirmed_at || a.confirmedAt,
+        sessionDate: a.session_date || a.sessionDate
+      }));
+      const students = studentsRes.data.students || studentsRes.data || [];
       
       // Calculate today's attendance
       const today = new Date().toDateString();

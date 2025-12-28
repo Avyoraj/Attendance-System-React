@@ -16,7 +16,6 @@ import {
   BarChart3,
   UserPlus,
   History,
-  AlertTriangle,
   ChevronRight,
   Smartphone,
   UserCog
@@ -69,8 +68,7 @@ const Layout = () => {
     { name: 'Classes', href: '/classes', icon: BookOpen },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
     { name: 'Manual Entry', href: '/attendance/manual', icon: UserPlus },
-    { name: 'History', href: '/attendance/history', icon: History },
-    { name: 'Anomalies', href: '/attendance/anomalies', icon: AlertTriangle }
+    { name: 'History', href: '/attendance/history', icon: History }
   ];
 
   const handleLogout = () => {

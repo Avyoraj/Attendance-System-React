@@ -23,7 +23,7 @@ const LiveAnomalies = () => {
   const fetchData = useCallback(async () => {
     try {
       const [streamsRes, anomaliesRes] = await Promise.all([
-        axios.get('/api/rssi/streams/today'),
+        axios.get('/api/rssi/streams', { params: { date: new Date().toISOString() } }),
         axios.get('/api/anomalies', { params: { status: 'pending' } })
       ]);
       
@@ -43,7 +43,7 @@ const LiveAnomalies = () => {
     
     try {
       setAnalyzing(true);
-      const res = await axios.post('/api/analyze-correlations', {});
+      const res = await axios.post('/api/rssi/analyze', {});
       setAnalysisResult(res.data.results);
       
       // Refresh anomalies after analysis
@@ -78,10 +78,19 @@ const LiveAnomalies = () => {
   const handleReview = async (anomalyId, action) => {
     try {
       setReviewing(anomalyId);
-      await axios.put(`/api/anomalies/${anomalyId}/review`, { action });
+      // Map frontend action to backend status (must match DB constraints)
+      // DB allows: 'pending', 'confirmed_proxy', 'false_positive', 'investigating'
+      const status = action === 'confirmed_proxy' ? 'confirmed_proxy' : 'false_positive';
+      
+      await axios.put(`/api/anomalies/${anomalyId}`, { 
+        status,
+        reviewNotes: action === 'confirmed_proxy' ? 'Confirmed by teacher via dashboard' : 'Marked as false positive by teacher'
+      });
+
       toast.success(action === 'confirmed_proxy' ? '🚫 Proxy confirmed' : '✓ Marked as false positive');
       fetchData();
     } catch (error) {
+      console.error('Review error:', error);
       toast.error('Failed to review');
     } finally {
       setReviewing(null);

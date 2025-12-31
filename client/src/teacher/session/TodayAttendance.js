@@ -193,6 +193,11 @@ const TodayAttendance = () => {
                     {record.studentName || record.studentId}
                   </p>
                   <p className="text-xs sm:text-sm text-gray-500 truncate">{record.studentId}</p>
+                  {record.status === 'cancelled' && record.cancellationReason && (
+                    <p className="text-xs text-red-500 truncate mt-0.5 font-medium">
+                      Reason: {record.cancellationReason}
+                    </p>
+                  )}
                 </div>
               </div>
               

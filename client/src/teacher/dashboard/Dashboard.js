@@ -242,9 +242,6 @@ const Dashboard = () => {
       {/* Today's Attendance */}
       <TodayAttendance />
 
-      {/* Live Proxy Detection - Full Width Below */}
-      <LiveAnomalies />
-
       {/* Enhanced Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
@@ -277,6 +274,11 @@ const Dashboard = () => {
           color="bg-gradient-to-br from-orange-500 to-orange-600"
           description="All time records"
         />
+      </div>
+
+      {/* Live Anomalies Section */}
+      <div className="mb-8">
+        <LiveAnomalies />
       </div>
 
       {/* Enhanced Activity Section */}

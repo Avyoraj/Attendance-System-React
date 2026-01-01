@@ -44,8 +44,9 @@ const Classes = () => {
       }));
       setClasses(normalizedClasses);
 
-      // Normalize students: ensure subjects are string ids
-      const rawStudents = studentsRes.data.students || [];
+      // Normalize students: handle both array and object response formats
+      const studentsData = studentsRes.data;
+      const rawStudents = Array.isArray(studentsData) ? studentsData : (studentsData.students || studentsData || []);
       const normalizedStudents = rawStudents.map(s => ({
         ...s,
         subjects: Array.isArray(s.subjects) ? s.subjects.map(x => x?.toString()) : [],

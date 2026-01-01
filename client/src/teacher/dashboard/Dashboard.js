@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   BookOpen,
@@ -37,70 +37,35 @@ const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadData = async () => {
-      if (isMounted) {
-        await fetchDashboardData();
-      }
-    };
-    
-    loadData();
-    
-    // Update time every second
-    const timeInterval = setInterval(() => {
-      if (isMounted) {
-        setCurrentTime(new Date());
-      }
-    }, 1000);
-    
-    // Clean up on component unmount
-    return () => {
-      isMounted = false;
-      clearInterval(timeInterval);
-    };
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setRefreshing(true);
       const ts = Date.now();
-      const [studentsRes, classesRes] = await Promise.all([
+      const [studentsRes, classesRes, todayAttendanceRes] = await Promise.all([
         axios.get('/api/students', { params: { t: ts }, cache: false }),
         axios.get('/api/classes', { params: { t: ts }, cache: false }),
+        axios.get('/api/attendance/today-all', { params: { t: ts }, cache: false }),
       ]);
 
-      const students = (studentsRes.data.students || []).map(s => ({
+      // Handle both array and object response formats from backend
+      const studentsData = studentsRes.data;
+      const students = (Array.isArray(studentsData) ? studentsData : (studentsData.students || studentsData || [])).map(s => ({
         ...s,
         created_at: s.created_at || s.createdAt
       }));
-      const classes = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data.classes || []);
+      
+      const classesData = classesRes.data;
+      const classes = Array.isArray(classesData) ? classesData : (classesData.classes || classesData || []);
 
-      // Optional: fetch attendance for first class if available
-      let attendance = [];
-      if (classes.length > 0) {
-        const firstId = classes[0]._id || classes[0].id;
-        try {
-          const attendanceRes = await axios.get(`/api/attendance/${firstId}`, { params: { t: Date.now() }, cache: false });
-          attendance = attendanceRes.data.attendance || [];
-        } catch {}
-      }
-
-      const todayAttendance = attendance.filter(a => {
-        const today = new Date().toDateString();
-        const attendanceDate = new Date(a.timestamp).toDateString();
-        return today === attendanceDate;
-      }).length;
+      // Use today-all endpoint which returns properly formatted data
+      const attendance = todayAttendanceRes.data.attendance || [];
+      const todayAttendance = todayAttendanceRes.data.summary?.total || attendance.length;
 
       const attendanceRate = students.length > 0 ? Math.round((todayAttendance / students.length) * 100) : 0;
       
-      // Calculate weekly growth based on last week's data
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const lastWeekAttendance = attendance.filter(a => new Date(a.timestamp) < oneWeekAgo).length;
-      const weeklyGrowth = lastWeekAttendance > 0 ? 
-        Math.round(((todayAttendance - lastWeekAttendance) / lastWeekAttendance) * 100) : 0;
+      // Calculate weekly growth based on confirmed attendance
+      const confirmedCount = todayAttendanceRes.data.summary?.confirmed || 0;
+      const weeklyGrowth = confirmedCount > 0 ? Math.round((confirmedCount / Math.max(todayAttendance, 1)) * 100) : 0;
 
       setStats({
         totalStudents: students.length,
@@ -111,20 +76,51 @@ const Dashboard = () => {
         weeklyGrowth
       });
 
-      setRecentAttendance(attendance.slice(0, 5));
-      if (!refreshing) {
-        // Only show success on manual refresh, not initial load
-      }
+      // Format recent attendance for display (use correct field names from backend)
+      const formattedAttendance = attendance.slice(0, 5).map(a => ({
+        ...a,
+        student_name: a.studentName || a.student_name || a.studentId,
+        student_id: a.studentId || a.student_id,
+        status: a.status === 'confirmed' ? 'present' : (a.status === 'cancelled' ? 'absent' : a.status),
+        timestamp: a.checkInTime || a.check_in_time || a.timestamp
+      }));
+      setRecentAttendance(formattedAttendance);
     } catch (error) {
       if (error.code !== 'ERR_CANCELED') {
         console.error('Failed to fetch dashboard data:', error);
-        toast.error('Failed to load dashboard data');
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    fetchDashboardData();
+    
+    // Update time every second
+    const timeInterval = setInterval(() => {
+      if (isMounted) {
+        setCurrentTime(new Date());
+      }
+    }, 1000);
+    
+    // Auto-refresh dashboard data every 10 seconds for real-time updates
+    const dataInterval = setInterval(() => {
+      if (isMounted) {
+        fetchDashboardData();
+      }
+    }, 10000);
+    
+    // Clean up on component unmount
+    return () => {
+      isMounted = false;
+      clearInterval(timeInterval);
+      clearInterval(dataInterval);
+    };
+  }, [fetchDashboardData]);
 
   const StatCard = ({ title, value, icon: Icon, color, description, trend, trendValue }) => (
     <div className="group relative overflow-hidden bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">

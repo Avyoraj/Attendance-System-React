@@ -65,13 +65,17 @@ const Students = () => {
       const rawClasses = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data.classes || []);
       const normalizedClasses = rawClasses.map(c => ({ ...c, id: c.id || c._id }));
 
+      // Handle both array and object response formats from backend
+      const studentsData = studentsRes.data;
+      const rawStudents = Array.isArray(studentsData) ? studentsData : (studentsData.students || studentsData || []);
+
       setData({
-        students: (studentsRes.data.students || []).map(s => ({
+        students: rawStudents.map(s => ({
           ...s,
           subjects: Array.isArray(s.subjects) ? s.subjects.map(x => x?.toString()) : []
         })),
         classes: normalizedClasses,
-        totalStudents: studentsRes.data.totalCount || 0,
+        totalStudents: studentsRes.data.totalCount || rawStudents.length,
         totalPages: studentsRes.data.totalPages || 1
       });
     } catch (error) {

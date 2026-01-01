@@ -16,15 +16,33 @@ const TodayAttendance = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  const fetchAttendance = useCallback(async () => {
+  const fetchAttendance = useCallback(async (signal) => {
     try {
       setRefreshing(true);
-      const res = await axios.get('/api/attendance/today-all', { params: { t: Date.now() } });
+      const res = await axios.get('/api/attendance/today-all', { 
+        params: { t: Date.now() },
+        signal 
+      });
       
-      setAttendance(res.data.attendance || []);
-      setSummary(res.data.summary || { total: 0, confirmed: 0, provisional: 0, cancelled: 0 });
+      // Handle both wrapped and direct array responses
+      const attendanceData = Array.isArray(res.data) 
+        ? res.data 
+        : (res.data.attendance || []);
+      const summaryData = res.data.summary || { 
+        total: attendanceData.length, 
+        confirmed: attendanceData.filter(a => a.status === 'confirmed').length,
+        provisional: attendanceData.filter(a => a.status === 'provisional').length,
+        cancelled: attendanceData.filter(a => a.status === 'cancelled').length
+      };
+      
+      setAttendance(attendanceData);
+      setSummary(summaryData);
       setLastUpdate(new Date());
     } catch (error) {
+      // Ignore abort errors (happens on cleanup or duplicate request cancellation)
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Failed to fetch attendance:', error);
     } finally {
       setLoading(false);
@@ -33,9 +51,13 @@ const TodayAttendance = () => {
   }, []);
 
   useEffect(() => {
-    fetchAttendance();
-    const interval = setInterval(fetchAttendance, 10000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchAttendance(controller.signal);
+    const interval = setInterval(() => fetchAttendance(controller.signal), 10000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchAttendance]);
 
   const exportToCSV = () => {

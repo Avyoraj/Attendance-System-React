@@ -28,14 +28,18 @@ const Attendance = () => {
       const attendanceData = response.data.attendance || [];
       setAttendance(attendanceData);
       
-      // Create comprehensive attendance list
-      const classStudents = students.filter(s => s.class_id == selectedClass);
+      // Create comprehensive attendance list - match by student_id field
+      const classStudents = students.filter(s => s.class_id === selectedClass || !s.class_id);
       const comprehensiveAttendance = classStudents.map(student => {
-        const existingRecord = attendanceData.find(a => a.student_id == student.id);
+        // Match using student_id field (the string ID like "STU001")
+        const studentIdToMatch = student.student_id || student.id;
+        const existingRecord = attendanceData.find(a => 
+          (a.student_id === studentIdToMatch) || (a.studentId === studentIdToMatch)
+        );
         return {
           ...student,
           status: existingRecord?.status || 'absent',
-          timestamp: existingRecord?.timestamp || null,
+          timestamp: existingRecord?.check_in_time || existingRecord?.checkInTime || existingRecord?.timestamp || null,
           attendance_id: existingRecord?.id || null,
         };
       });
@@ -73,11 +77,19 @@ const Attendance = () => {
         axios.get('/api/students'),
       ]);
 
-      setClasses(classesRes.data.classes || []);
-      setStudents(studentsRes.data.students || []);
+      // Handle both array and object response formats from backend
+      const classesData = classesRes.data;
+      const parsedClasses = Array.isArray(classesData) ? classesData : (classesData.classes || classesData || []);
       
-      if (classesRes.data.classes?.length > 0) {
-        setSelectedClass(classesRes.data.classes[0].id);
+      const studentsData = studentsRes.data;
+      const parsedStudents = Array.isArray(studentsData) ? studentsData : (studentsData.students || studentsData || []);
+
+      setClasses(parsedClasses);
+      setStudents(parsedStudents);
+      
+      if (parsedClasses.length > 0) {
+        // Use class_id or id field
+        setSelectedClass(parsedClasses[0].class_id || parsedClasses[0].id);
       }
     } catch (error) {
       if (error.code !== 'ERR_CANCELED') {

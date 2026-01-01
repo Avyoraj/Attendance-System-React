@@ -20,17 +20,38 @@ const LiveAnomalies = () => {
   const [reviewing, setReviewing] = useState(null);
 
   // Fetch RSSI streams and anomalies
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal) => {
     try {
+      // Add unique timestamp to prevent AuthContext's duplicate request cancellation
+      const timestamp = Date.now();
       const [streamsRes, anomaliesRes] = await Promise.all([
-        axios.get('/api/rssi/streams', { params: { date: new Date().toISOString() } }),
-        axios.get('/api/anomalies', { params: { status: 'pending' } })
+        axios.get('/api/rssi/streams', { 
+          params: { date: new Date().toISOString(), t: timestamp },
+          signal 
+        }),
+        // Fetch ALL today's anomalies (pending + auto-confirmed) for visibility
+        axios.get('/api/anomalies', { 
+          params: { t: timestamp },
+          signal 
+        })
       ]);
       
-      setStreams(streamsRes.data.streams || []);
-      setAnomalies(anomaliesRes.data.anomalies || []);
+      // Handle both array and object responses
+      const streamsData = Array.isArray(streamsRes.data) 
+        ? streamsRes.data 
+        : (streamsRes.data.streams || []);
+      const anomaliesData = Array.isArray(anomaliesRes.data) 
+        ? anomaliesRes.data 
+        : (anomaliesRes.data.anomalies || []);
+      
+      setStreams(streamsData);
+      setAnomalies(anomaliesData);
       setLastUpdate(new Date());
     } catch (error) {
+      // Ignore abort errors (happens on cleanup)
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Fetch error:', error);
     } finally {
       setLoading(false);
@@ -44,27 +65,48 @@ const LiveAnomalies = () => {
     try {
       setAnalyzing(true);
       const res = await axios.post('/api/rssi/analyze', {});
-      setAnalysisResult(res.data.results);
       
-      // Refresh anomalies after analysis
-      const anomaliesRes = await axios.get('/api/anomalies', { params: { status: 'pending' } });
-      setAnomalies(anomaliesRes.data.anomalies || []);
+      // Parse the results - backend returns { results: { pairsAnalyzed, anomaliesDetected } }
+      const analysisData = res.data.results || res.data;
+      setAnalysisResult({
+        analyzed: analysisData.pairsAnalyzed || analysisData.analyzed || 0,
+        flagged: analysisData.anomaliesDetected || analysisData.flagged || 0
+      });
       
-      if (res.data.results?.flagged > 0) {
-        toast.error(`🚨 ${res.data.results.flagged} proxy pattern detected!`);
+      // Refresh ALL anomalies after analysis (both pending and auto-confirmed)
+      const anomaliesRes = await axios.get('/api/anomalies', { params: { t: Date.now() } });
+      const anomaliesData = Array.isArray(anomaliesRes.data) 
+        ? anomaliesRes.data 
+        : (anomaliesRes.data.anomalies || []);
+      setAnomalies(anomaliesData);
+      
+      const flaggedCount = analysisData.anomaliesDetected || analysisData.flagged || 0;
+      if (flaggedCount > 0) {
+        toast.error(`🚨 ${flaggedCount} proxy pattern detected!`);
+      } else {
+        toast.success('✅ Analysis complete - no proxies detected');
       }
     } catch (error) {
-      console.error('Analysis error:', error);
+      if (error.name !== 'CanceledError' && error.code !== 'ERR_CANCELED') {
+        console.error('Analysis error:', error);
+        toast.error('Analysis failed');
+      }
     } finally {
       setAnalyzing(false);
     }
   }, [streams.length]);
 
-  // Initial load and polling
+  // Initial load and polling with abort controller
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000); // Poll every 10s
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    
+    fetchData(controller.signal);
+    const interval = setInterval(() => fetchData(controller.signal), 10000);
+    
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   // Auto-analyze when we have 2+ streams
@@ -232,57 +274,101 @@ const LiveAnomalies = () => {
         </div>
       )}
 
-      {/* Pending Anomalies */}
+      {/* Anomalies Section - Shows both pending and auto-confirmed */}
       {anomalies.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <span className="text-sm font-medium text-gray-700">Flagged Pairs</span>
-            <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{anomalies.length}</span>
-          </div>
-          
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {anomalies.map((anomaly) => (
-              <div key={anomaly.id} className="bg-red-50 border border-red-200 rounded-xl p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-red-500" />
-                    <span className="text-sm font-medium text-gray-800">
-                      {anomaly.student_id_1} & {anomaly.student_id_2}
-                    </span>
-                  </div>
-                  <span className={`text-sm font-bold ${getCorrelationColor(anomaly.correlation_score)}`}>
-                    ρ = {anomaly.correlation_score?.toFixed(3)}
-                  </span>
-                </div>
-                
-                {/* Detailed info */}
-                <div className="text-xs text-gray-600 mb-2 bg-white rounded-lg p-2 border border-red-100">
-                  {anomaly.notes || 'High correlation detected - possible proxy attendance'}
-                </div>
-                
-                {/* Actions */}
-                <div className="flex items-center justify-end space-x-2">
-                  <button
-                    onClick={() => handleReview(anomaly.id, 'confirmed_proxy')}
-                    disabled={reviewing === anomaly.id}
-                    className="px-2 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg text-xs font-medium disabled:opacity-50 flex items-center space-x-1"
-                  >
-                    <XCircle className="h-3 w-3" />
-                    <span>Confirm Proxy</span>
-                  </button>
-                  <button
-                    onClick={() => handleReview(anomaly.id, 'false_positive')}
-                    disabled={reviewing === anomaly.id}
-                    className="px-2 py-1 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg text-xs font-medium disabled:opacity-50 flex items-center space-x-1"
-                  >
-                    <CheckCircle className="h-3 w-3" />
-                    <span>False Positive</span>
-                  </button>
-                </div>
+        <div className="space-y-3">
+          {/* Auto-Confirmed Anomalies (>98% correlation) */}
+          {anomalies.filter(a => a.status === 'confirmed_proxy').length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm font-medium text-red-700">Auto-Confirmed Proxies</span>
+                <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                  {anomalies.filter(a => a.status === 'confirmed_proxy').length}
+                </span>
               </div>
-            ))}
-          </div>
+              
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {anomalies.filter(a => a.status === 'confirmed_proxy').map((anomaly) => (
+                  <div key={anomaly.id} className="bg-red-100 border-2 border-red-300 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-red-600" />
+                        <span className="text-sm font-bold text-red-800">
+                          {anomaly.student_id_1} & {anomaly.student_id_2}
+                        </span>
+                      </div>
+                      <span className="text-sm font-bold text-red-600">
+                        ρ = {anomaly.correlation_score?.toFixed(3)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-red-700 bg-red-50 rounded-lg p-2 border border-red-200">
+                      🤖 {anomaly.notes || 'Auto-confirmed: Extremely high correlation (>98%)'}
+                    </div>
+                    <div className="mt-2 text-xs text-red-600 font-medium">
+                      ⚠️ Attendance automatically cancelled
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pending Anomalies (85-98% - needs manual review) */}
+          {anomalies.filter(a => a.status === 'pending').length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <span className="text-sm font-medium text-gray-700">Needs Review</span>
+                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                  {anomalies.filter(a => a.status === 'pending').length}
+                </span>
+              </div>
+              
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {anomalies.filter(a => a.status === 'pending').map((anomaly) => (
+                  <div key={anomaly.id} className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium text-gray-800">
+                          {anomaly.student_id_1} & {anomaly.student_id_2}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-bold ${getCorrelationColor(anomaly.correlation_score)}`}>
+                        ρ = {anomaly.correlation_score?.toFixed(3)}
+                      </span>
+                    </div>
+                    
+                    {/* Detailed info */}
+                    <div className="text-xs text-gray-600 mb-2 bg-white rounded-lg p-2 border border-orange-100">
+                      {anomaly.notes || 'High correlation detected - may be sitting close together'}
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => handleReview(anomaly.id, 'confirmed_proxy')}
+                        disabled={reviewing === anomaly.id}
+                        className="px-2 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg text-xs font-medium disabled:opacity-50 flex items-center space-x-1"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        <span>Confirm Proxy</span>
+                      </button>
+                      <button
+                        onClick={() => handleReview(anomaly.id, 'false_positive')}
+                        disabled={reviewing === anomaly.id}
+                        className="px-2 py-1 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg text-xs font-medium disabled:opacity-50 flex items-center space-x-1"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        <span>False Positive</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

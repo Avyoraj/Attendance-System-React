@@ -120,16 +120,15 @@ const LiveAnomalies = () => {
   const handleReview = async (anomalyId, action) => {
     try {
       setReviewing(anomalyId);
-      // Map frontend action to backend status (must match DB constraints)
-      // DB allows: 'pending', 'confirmed_proxy', 'false_positive', 'investigating'
-      const status = action === 'confirmed_proxy' ? 'confirmed_proxy' : 'false_positive';
+      // Map frontend action to backend endpoint
+      // action: 'confirmed_proxy' | 'false_positive'
       
-      await axios.put(`/api/anomalies/${anomalyId}`, { 
-        status,
-        reviewNotes: action === 'confirmed_proxy' ? 'Confirmed by teacher via dashboard' : 'Marked as false positive by teacher'
+      await axios.put(`/api/anomalies/${anomalyId}/review`, { 
+        action: action === 'confirmed_proxy' ? 'confirm_proxy' : 'false_positive',
+        notes: action === 'confirmed_proxy' ? 'Confirmed by teacher via dashboard' : 'Marked as false positive by teacher'
       });
 
-      toast.success(action === 'confirmed_proxy' ? '🚫 Proxy confirmed' : '✓ Marked as false positive');
+      toast.success(action === 'confirmed_proxy' ? '🚫 Proxy confirmed - attendance cancelled' : '✓ Marked as false positive');
       fetchData();
     } catch (error) {
       console.error('Review error:', error);
@@ -209,10 +208,18 @@ const LiveAnomalies = () => {
           <div className="space-y-1">
             {streams.slice(0, 4).map((stream, i) => (
               <div key={i} className="flex items-center justify-between text-xs bg-white rounded-lg px-2 py-1.5 border border-gray-100">
-                <span className="font-medium text-gray-700">{stream.student_id}</span>
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium text-gray-700">{stream.student_id}</span>
+                  {/* Show badge for confirmed/legitimate attendance */}
+                  {stream.is_confirmed && (
+                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-500">{stream.sample_count || stream.rssi_data?.length || 0} samples</span>
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className={`w-2 h-2 rounded-full ${stream.is_confirmed ? 'bg-green-500' : 'bg-yellow-400 animate-pulse'}`}></div>
                 </div>
               </div>
             ))}

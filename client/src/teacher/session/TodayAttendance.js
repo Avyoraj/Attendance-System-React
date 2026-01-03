@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Clock, XCircle, Users, RefreshCw, Wifi, Download } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Users, RefreshCw, Wifi, Download, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast';
  */
 const TodayAttendance = () => {
   const [attendance, setAttendance] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, confirmed: 0, provisional: 0, cancelled: 0 });
+  const [summary, setSummary] = useState({ total: 0, confirmed: 0, provisional: 0, flagged: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -32,6 +32,7 @@ const TodayAttendance = () => {
         total: attendanceData.length, 
         confirmed: attendanceData.filter(a => a.status === 'confirmed').length,
         provisional: attendanceData.filter(a => a.status === 'provisional').length,
+        flagged: attendanceData.filter(a => a.status === 'flagged').length,
         cancelled: attendanceData.filter(a => a.status === 'cancelled').length
       };
       
@@ -91,6 +92,7 @@ const TodayAttendance = () => {
     const badges = {
       confirmed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle, label: 'Confirmed' },
       provisional: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock, label: 'Provisional' },
+      flagged: { bg: 'bg-orange-100', text: 'text-orange-800', icon: AlertTriangle, label: '🚨 Flagged' },
       cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle, label: 'Cancelled' }
     };
     const badge = badges[status] || { bg: 'bg-gray-100', text: 'text-gray-800', icon: Clock, label: status };
@@ -167,8 +169,8 @@ const TodayAttendance = () => {
         </div>
       </div>
 
-      {/* Summary Stats - Mobile: 2x2 grid, Desktop: 4 cols */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+      {/* Summary Stats - Mobile: 2x2 grid, Desktop: 5 cols */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div className="bg-blue-50 rounded-xl p-3 sm:p-4 text-center">
           <p className="text-xl sm:text-2xl font-bold text-blue-600">{summary.total}</p>
           <p className="text-xs text-blue-600 font-medium">Total</p>
@@ -180,6 +182,10 @@ const TodayAttendance = () => {
         <div className="bg-yellow-50 rounded-xl p-3 sm:p-4 text-center">
           <p className="text-xl sm:text-2xl font-bold text-yellow-600">{summary.provisional}</p>
           <p className="text-xs text-yellow-600 font-medium">Provisional</p>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-3 sm:p-4 text-center">
+          <p className="text-xl sm:text-2xl font-bold text-orange-600">{summary.flagged || 0}</p>
+          <p className="text-xs text-orange-600 font-medium">🚨 Flagged</p>
         </div>
         <div className="bg-red-50 rounded-xl p-3 sm:p-4 text-center">
           <p className="text-xl sm:text-2xl font-bold text-red-600">{summary.cancelled}</p>
